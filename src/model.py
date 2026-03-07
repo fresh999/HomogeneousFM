@@ -41,7 +41,7 @@ class MLP(nn.Module):
         x = x.reshape(-1, self.input_features)
         t = t.reshape(-1, 1).expand(x.shape[0], 1).float()
         h = torch.cat([x, t], dim=1)
-        return self.model(h)
+        return self.model(h).reshape(*sz)
 
 
 class InvariantModel(nn.Module):
@@ -49,19 +49,33 @@ class InvariantModel(nn.Module):
         Wrapper for a model that makes it invariant under a group action.
         Only implemented for Sp(2) / U(1).
     '''
-    def __init__(self, model: nn.Module, n_samples: int = 100) -> None:
+    def __init__(self, model: nn.Module, n_samples: int = 100, device: str = 'cpu') -> None:
+        super().__init__()
         self.n_samples = n_samples
         self.model = model
+        self.device = device
 
     def forward(self, x: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
         '''
             X_inv(p) = \int_{U(1)} Ad_{g^{-1}} (X(g.p)) d mu (g)
             d mu = Haar measure = d theta / 2 pi
         '''
-        for _ in range(n_samples):
-            theta = 2 * pi * torch.rand(out.shape[0])
-            sin = torch.sin(theta).unsqueeze(-1)
-            cos = torch.cos(theta).unsqueeze(-1)
+        def gen_group_elements(n_samples: int, device: str) -> torch.Tensor:
+            theta = 2 * pi * torch.rand(n_samples, device=self.device)
+            sin = torch.sin(theta)
+            cos = torch.cos(theta)
+            row_1 = torch.cat([cos[:, None], sin[:, None]], dim=1)
+            row_2 = torch.cat([-sin[:, None], cos[:, None]], dim=1)
+            g = torch.stack([row_1, row_2], dim=1)
+            return g
+
+        gs = gen_group_elements(self.n_samples, self.device).unsqueeze(0)
+        new_x = torch.matmul(gs, x.unsqueeze(1))
+        out = self.model(new_x, t)
+        print(out.shape)
+
+
+
 
 
 
@@ -70,13 +84,17 @@ if __name__ == '__main__':
     torch.manual_seed(43)
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-    model = MLP(2, 2, width=64, depth=2, activation='relu')
+    model = MLP(4, 4, width=64, depth=2, activation='relu').to(device)
     bs = 10
+    ns = 4
 
-    x = torch.rand((bs, 2), device=device)
-    t = torch.randint(high=2, size=(bs,), device=device)
-    print(model(x, t))
+    x = torch.rand((bs, 2, 2), device=device)
+    t = torch.randint(high=2, size=(bs, 1), device=device)
+    t = t.expand(bs, ns)
+    # print(model(x, t))
 
+    inv_model = InvariantModel(model, n_samples=ns, device=device).to(device)
+    print(inv_model(x, t))
 
 
 

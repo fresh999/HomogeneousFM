@@ -46,7 +46,7 @@ if __name__ == '__main__':
     data = inf_train_gen(batch_size)
     sec = section(data)
 
-    # plt.scatter(data[:, 0].detach(), data[:, 1].detach(), marker='.', alpha=0.5)
+    plt.scatter(data[:, 0].detach(), data[:, 1].detach(), marker='.', alpha=0.5)
     # plt.savefig('img.pdf')
 
 
