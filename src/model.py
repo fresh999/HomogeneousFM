@@ -48,6 +48,8 @@ class InvariantModel(nn.Module):
     '''
         Wrapper for a model that makes it invariant under a group action.
         Only implemented for Sp(2) / U(1).
+
+        Warning: the model is averaged every time forward is called.
     '''
     def __init__(self, model: nn.Module, n_samples: int = 100, device: str = 'cpu') -> None:
         super().__init__()
@@ -59,6 +61,11 @@ class InvariantModel(nn.Module):
         '''
             X_inv(p) = \int_{U(1)} Ad_{g^{-1}} (X(g.p)) d mu (g)
             d mu = Haar measure = d theta / 2 pi
+            This is achieved by sampling elements from U(1) and taking a discrete average.
+
+            Warning: the current implementation required the timestamp tensor t to have
+                     shape [batch_size, n_samples]. This has to be manually done by the user
+                     by sampling batch_size timestamps and expanding them before calling forward.
         '''
         def gen_group_elements(n_samples: int, device: str) -> torch.Tensor:
             theta = 2 * pi * torch.rand(n_samples, device=self.device)
@@ -72,7 +79,9 @@ class InvariantModel(nn.Module):
         gs = gen_group_elements(self.n_samples, self.device).unsqueeze(0)
         new_x = torch.matmul(gs, x.unsqueeze(1))
         out = self.model(new_x, t)
-        print(out.shape)
+        out = torch.matmul(torch.transpose(gs, -1, -2), torch.matmul(out, gs))
+        out = torch.mean(out, dim=1)
+        return out
 
 
 
