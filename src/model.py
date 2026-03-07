@@ -44,6 +44,7 @@ class MLP(nn.Module):
         return self.model(h).reshape(*sz)
 
 
+
 class InvariantModel(nn.Module):
     '''
         Wrapper for a model that makes it invariant under a group action.

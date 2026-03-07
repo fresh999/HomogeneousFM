@@ -41,12 +41,13 @@ def section(data: torch.Tensor) -> torch.Tensor:
 if __name__ == '__main__':
 
     torch.manual_seed(42)
-    batch_size = 3
+    batch_size = 4096
 
     data = inf_train_gen(batch_size)
-    sec = section(data)
+    #sec = section(data)
 
     plt.scatter(data[:, 0].detach(), data[:, 1].detach(), marker='.', alpha=0.5)
+    plt.show()
     # plt.savefig('img.pdf')
 
 
