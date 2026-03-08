@@ -56,6 +56,3 @@ class ProbPath(ABC):
         ), f'Timestamp t dimension must match the batch size {x_1.shape[0]}. Got {t.shape}'
 
 
-if __name__ == '__main__':
-
-    ProbPath()
