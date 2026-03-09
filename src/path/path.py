@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 
 import torch
 
-from src.path.path_sample import PathSample
+from path.path_sample import PathSample
 
 
 
@@ -32,7 +32,7 @@ class ProbPath(ABC):
     '''
 
     @abstractmethod
-    def sample(self, x_0: torch.Tensor, x_1: torch.Tensor) -> PathSample:
+    def sample(self, x_0: torch.Tensor, x_1: torch.Tensor, t: torch.Tensor) -> PathSample:
         r'''Sample from an abstract probability path:
 
         | given :math:`(X_0,X_1) \sim \pi(X_0,X_1)`.
@@ -52,7 +52,7 @@ class ProbPath(ABC):
             t.ndim == 1
         ), f'The timestamp vector must have shape [batch_size]. Got {t.shape}.'
         assert (
-            t.shape[0] == x.shape[0] == x_1.shape[0]
+            t.shape[0] == x_0.shape[0] == x_1.shape[0]
         ), f'Timestamp t dimension must match the batch size {x_1.shape[0]}. Got {t.shape}'
 
 

@@ -4,7 +4,8 @@ from dataclasses import dataclass, field
 import torch
 
 
-@dataclass SchedulerOutput:
+@dataclass
+class SchedulerOutput:
     r'''Represents a sample of a conditional-flow generated probability path.
 
     Attributes:
@@ -74,7 +75,6 @@ class ConvexScheduler(Scheduler):
         """
         ...
 
-    @abstractmethod
     def snr_inverse(self, snr: torch.Tensor) -> torch.Tensor:
         r"""
         Computes :math:`t` from the signal-to-noise ratio :math:`\frac{\alpha_t}{\sigma_t}`.

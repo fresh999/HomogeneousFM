@@ -4,7 +4,6 @@ import torch
 from torch.linalg import vector_norm
 
 import matplotlib.pyplot as plt
-import matplotlib.ticker as ticker
 
 
 
@@ -26,6 +25,7 @@ def inf_train_gen(batch_size: int = 200, device: str = 'cpu') -> torch.Tensor:
 
     return new_data.float()
 
+
 def section(data: torch.Tensor) -> torch.Tensor:
     '''Maps points on upper half-plane to symplectic group.'''
 
@@ -37,18 +37,41 @@ def section(data: torch.Tensor) -> torch.Tensor:
     return torch.stack([row_1, row_2], dim=1)
 
 
+def augment_data_random(data: torch.Tensor, n_samples: int = 256) -> torch.Tensor:
+    '''Samples elements from U(1) and averages data around.
+    data.shape = [batch_size, 2, 2]
+    '''
+
+    def gen_group_elements(n_samples: int, device: str) -> torch.Tensor:
+        theta = 2 * pi * torch.rand(n_samples, device=device)
+        sin = torch.sin(theta)
+        cos = torch.cos(theta)
+        row_1 = torch.cat([cos[:, None], sin[:, None]], dim=1)
+        row_2 = torch.cat([-sin[:, None], cos[:, None]], dim=1)
+        g = torch.stack([row_1, row_2], dim=1)
+        return g
+
+    gs = gen_group_elements(n_samples, data.device).unsqueeze(0) # shape [1, n_samples, 2, 2]
+    aug_data = torch.matmul(data.unsqueeze(1), gs)
+    return aug_data.reshape(-1, aug_data.shape[-2], aug_data.shape[-1])
+
+
+
+
 
 if __name__ == '__main__':
 
     torch.manual_seed(42)
-    batch_size = 4096
+    batch_size = 256
 
     data = inf_train_gen(batch_size)
-    #sec = section(data)
+    sec = section(data)
+    sec = augment_data_random(sec, 2)
 
     plt.scatter(data[:, 0].detach(), data[:, 1].detach(), marker='.', alpha=0.5)
-    plt.show()
-    # plt.savefig('img.pdf')
+    # plt.show()
+    plt.savefig('img.pdf')
+
 
 
 

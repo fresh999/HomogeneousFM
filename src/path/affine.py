@@ -1,9 +1,9 @@
 import torch
 
-from src.path.path import ProbPath
-from src.path.path_sample import PathSample
-from src.path.scheduler.scheduler import CondOTScheduler, Scheduler
-from src.utils.utils import expand_tensor_like
+from path.path import ProbPath
+from path.path_sample import PathSample
+from path.scheduler.scheduler import CondOTScheduler, Scheduler
+from utils.utils import expand_tensor_like
 
 
 
@@ -49,7 +49,7 @@ class AffineProbPath(ProbPath):
     def __init__(self, scheduler: Scheduler) -> None:
         self.scheduler = scheduler
 
-    def sample(self, x_0: torch.Tensor, x_1: torch.Tensor) -> PathSample:
+    def sample(self, x_0: torch.Tensor, x_1: torch.Tensor, t: torch.Tensor) -> PathSample:
         r'''Sample from the affine probability path:
 
         | given :math:`(X_0,X_1) \sim \pi(X_0,X_1)` and a scheduler :math:`(\alpha_t,\sigma_t)`.
@@ -63,3 +63,39 @@ class AffineProbPath(ProbPath):
         Returns:
             PathSample: a conditional sample at :math:`X_t \sim p_t`.
         '''
+
+        self.assert_sample_shape(x_0=x_0, x_1=x_1, t=t)
+
+        scheduler_output = self.scheduler(t)
+
+        alpha_t = expand_tensor_like(input_tensor=scheduler_output.alpha_t, expand_to=x_1)
+        sigma_t = expand_tensor_like(input_tensor=scheduler_output.sigma_t, expand_to=x_1)
+        d_alpha_t = expand_tensor_like(input_tensor=scheduler_output.d_alpha_t, expand_to=x_1)
+        d_sigma_t = expand_tensor_like(input_tensor=scheduler_output.d_sigma_t, expand_to=x_1)
+
+        x_t = sigma_t * x_0 + alpha_t * x_1
+        dx_t = d_sigma_t * x_0 + d_alpha_t * x_1
+
+        return PathSample(x_t=x_t, dx_t=dx_t, x_1=x_1, x_0=x_0, t=t)
+
+
+
+class CondOTProbPath(AffineProbPath):
+    r'''The ``CondOTProbPath`` class represents a conditional optimal transport probability path.
+
+    This class is a specialized version of the ``AffineProbPath`` that uses a conditional optimal transport scheduler to determine the parameters of the affine transformation.
+
+    The parameters :math:`\alpha_t` and :math:`\sigma_t` for the conditional optimal transport path are defined as:
+
+    .. math::
+
+        \alpha_t = t \quad \text{and} \quad \sigma_t = 1 - t.
+    '''
+
+    def __init__(self):
+        self.scheduler = CondOTScheduler()
+
+
+
+
+
