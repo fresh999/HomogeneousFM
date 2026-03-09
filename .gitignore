@@ -1,6 +1,6 @@
 .venv/
+todo.txt
 token.txt
-src/outline.txt
 
 # Python cache
 __pycache__/

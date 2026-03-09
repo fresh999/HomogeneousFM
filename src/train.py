@@ -19,7 +19,7 @@ if __name__ == '__main__':
                  'width': 512,
                  'depth': 4,
                  'activation': 'relu',
-                 'n_samples': 1,
+                 'n_samples': 16,
                  'bin': 'bin'
                  }
 
