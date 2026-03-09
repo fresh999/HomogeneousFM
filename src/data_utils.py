@@ -37,6 +37,20 @@ def section(data: torch.Tensor) -> torch.Tensor:
     return torch.stack([row_1, row_2], dim=1)
 
 
+def project(data: torch.Tensor) -> torch.Tensor:
+    '''Maps data points on Sp(2) to upper half-plane (Sp(2) acts on the upper half-plane by fractional transformations).
+    data.shape = [batch_size, 2, 2]
+    '''
+
+    data = data.to(dtype=torch.cfloat)
+    z_vec = torch.tensor([1j, 1.], dtype=torch.cfloat, device=data.device)
+    z_vec = z_vec.unsqueeze(0).expand(data.shape[0], -1).unsqueeze(-1)
+    w_vec = torch.matmul(data, z_vec).squeeze(-1)
+
+    w = w_vec[:, 0] / w_vec[:, 1]
+    return torch.stack([w.real, w.imag], dim=1)
+
+
 def augment_data_random(data: torch.Tensor, n_samples: int = 256) -> torch.Tensor:
     '''Samples elements from U(1) and averages data around.
     data.shape = [batch_size, 2, 2]
@@ -62,15 +76,20 @@ def augment_data_random(data: torch.Tensor, n_samples: int = 256) -> torch.Tenso
 if __name__ == '__main__':
 
     torch.manual_seed(42)
-    batch_size = 256
+    batch_size = 2048
 
     data = inf_train_gen(batch_size)
     sec = section(data)
-    sec = augment_data_random(sec, 2)
+    # sec = augment_data_random(sec, 2)
 
     plt.scatter(data[:, 0].detach(), data[:, 1].detach(), marker='.', alpha=0.5)
     # plt.show()
-    plt.savefig('img.pdf')
+    plt.savefig('data.pdf')
+
+    proj = project(sec)
+    print(proj.shape)
+    plt.scatter(proj[:, 0].detach(), proj[:, 1].detach(), marker='.', alpha=0.5)
+    plt.savefig('proj.pdf')
 
 
 

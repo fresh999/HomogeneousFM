@@ -1,7 +1,7 @@
 import torch
 
 from model import MLP
-from data_generator import augment_data_random, inf_train_gen, section
+from data_utils import augment_data_random, inf_train_gen, section
 from path.affine import CondOTProbPath
 
 import time
