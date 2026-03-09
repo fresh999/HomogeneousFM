@@ -4,6 +4,7 @@ from model import MLP
 from data_utils import augment_data_random, inf_train_gen, section
 from path.affine import CondOTProbPath
 
+import os
 import time
 
 
@@ -18,7 +19,8 @@ if __name__ == '__main__':
                  'width': 512,
                  'depth': 4,
                  'activation': 'relu',
-                 'n_samples': 64
+                 'n_samples': 1,
+                 'bin': 'bin'
                  }
 
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -63,6 +65,14 @@ if __name__ == '__main__':
             print('| iter {:6d} | {:5.2f} ms/step | loss {:8.3f} '
               .format(i+1, elapsed * 1000 / train_cfg['print_every'], loss.item()))
             start_time = time.time()
+
+            torch.save({
+                'iteration': i,
+                'model_state_dict': vf.state_dict(),
+                'optimizer_state_dict': optim.state_dict(),
+                'loss': loss
+            }, os.path.join(train_cfg['bin'], f'checkpoint_iter_{i}.pt'))
+
 
 
 
