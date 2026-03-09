@@ -1,4 +1,5 @@
 .venv/
+src/bin/
 todo.txt
 token.txt
 
