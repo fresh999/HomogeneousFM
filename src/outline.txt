@@ -1,0 +1,11 @@
+Flow matching on homogeneous spaces.
+
+Let the homogeneous space be G/H
+
+Warning: we need to be given representatives of equivalence classes as data points. Alternatively, if the homogeneous space is "representable", we need a global section of G -> G/H.
+
+We do FM on G. We interpolate to create a conditional probability path and we get the corresponding vector field.
+
+--> in case the distributions (both the dataset and the empirical one) are not H-invariant, we need to augment them;
+--> the model needs to be H-equivariant (which in mathematically correct terms means the following: the vector field we are learning is invariant under the pushforward by right-multiplications R_h for all h in H).
+

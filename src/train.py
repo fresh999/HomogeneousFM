@@ -12,21 +12,21 @@ if __name__ == '__main__':
 
     train_cfg = {'lr': 0.001,
                  'batch_size': 4096,
-                 'iterations': 10,
-                 'print_every': 1,
+                 'iterations': 1000,
+                 'print_every': 20,
                  'input_features': 4,
                  'output_features': 4,
                  'width': 512,
                  'depth': 4,
                  'activation': 'relu',
-                 'n_samples': 16,
+                 'n_samples': 32,
                  'bin': 'bin'
                  }
 
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     print(f'Using device: {device}.')
 
-    torch.manual_seed(6)
+    torch.manual_seed(42)
 
     vf = MLP(
         input_features=train_cfg['input_features'],
@@ -46,10 +46,8 @@ if __name__ == '__main__':
         optim.zero_grad()
 
         x_1 = section(inf_train_gen(batch_size=train_cfg['batch_size'], device=device))
-        x_0 = torch.randn_like(x_1)
-
         x_1 = augment_data_random(x_1, train_cfg['n_samples'])
-        x_0 = augment_data_random(x_0, train_cfg['n_samples'])
+        x_0 = torch.randn_like(x_1)
         t = torch.rand(x_1.shape[0]).to(device)
 
         path_sample = path.sample(x_0=x_0, x_1=x_1, t=t)

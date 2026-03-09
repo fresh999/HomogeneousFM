@@ -1,0 +1,5 @@
+name: mlp
+  params:
+    - input_features: 4
+    - output_features: 4
+

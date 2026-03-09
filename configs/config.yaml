@@ -1,0 +1,8 @@
+defaults:
+  - model: mlp
+  - training: default
+  - optimizer: adam
+
+seed: 42
+device: cuda
+output: src/bin
