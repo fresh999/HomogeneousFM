@@ -1,0 +1,10 @@
+training:
+  batch_size: 16
+  iterations: 10
+  lr: 0.001
+  n_samples: 1
+  output_dir: bin/model
+  log_every: 1
+
+# potentially add config for type of optimizer
+

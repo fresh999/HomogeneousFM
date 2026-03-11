@@ -3,7 +3,7 @@ from typing import Callable, Optional, Sequence, Union
 import torch
 from torchdiffeq import odeint
 
-from solver import Solver
+from solver.solver import Solver
 from utils.model_wrapper import ModelWrapper
 
 
@@ -24,11 +24,12 @@ class ODESolver(Solver):
         self,
         x_init: torch.Tensor,
         step_size: Optional[float],
+        method: str = 'euler',
         atol: float = 1e-5,
         rtol: float = 1e-5,
         time_grid: torch.Tensor = torch.tensor([0.0, 1.0]),
         return_intermediates: bool = False,
-        enable_grid: bool = False,
+        enable_grad: bool = False,
         **model_extras
     ) -> Union[Sequence[torch.Tensor], torch.Tensor]:
 
@@ -79,7 +80,7 @@ class ODESolver(Solver):
 
         ode_opts = {'step_size': step_size} if step_size is not None else {}
 
-        with torch.set_autograd_enabled(enable_grad):
+        with torch.set_grad_enabled(enable_grad):
             sol = odeint(
                 ode_func,
                 x_init,

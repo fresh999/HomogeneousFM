@@ -1,0 +1,6 @@
+visual:
+  batch_size: 14
+  checkpoint_id: 4
+  load_dir: bin/model
+  n_steps: 10
+  output_dir: bin/visual

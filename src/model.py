@@ -4,7 +4,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-activations_dict = {'relu': F.relu}
+activations_dict = {'relu': F.relu,
+                    'swish': nn.SiLU()}
 
 class Activation(nn.Module):
     def __init__(self, activation: str) -> None:
@@ -57,7 +58,7 @@ if __name__ == '__main__':
     torch.manual_seed(43)
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-    model = MLP(4, 4, width=64, depth=2, activation='relu').to(device)
+    model = MLP(4, 4, width=64, depth=2, activation='swish').to(device)
     bs = 10
     ns = 4
 
@@ -66,8 +67,6 @@ if __name__ == '__main__':
     t = t.expand(bs, ns)
     # print(model(x, t))
 
-    inv_model = InvariantModel(model, n_samples=ns, device=device).to(device)
-    print(inv_model(x, t))
 
 
 

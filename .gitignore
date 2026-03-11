@@ -1,5 +1,7 @@
 .venv/
-src/bin/
+bin/
+outputs/
+src/outputs/
 todo.txt
 token.txt
 

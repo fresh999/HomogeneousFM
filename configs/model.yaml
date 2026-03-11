@@ -1,0 +1,7 @@
+mlp:
+  input_features: 4
+  output_features: 4
+  depth: 3
+  width: 512
+  activation: swish
+
