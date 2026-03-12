@@ -3,7 +3,7 @@ import torch
 from model import MLP
 from data_utils import inf_train_gen, section, sl2_noise
 from path.affine import CondOTProbPath
-from utils.group_utils import MatrixGroup
+from utils.group_utils import SL2R
 
 import hydra
 from omegaconf import DictConfig
@@ -33,7 +33,7 @@ def train(cfg: DictConfig) -> None:
 
     optim = torch.optim.AdamW(vf.parameters(), lr=cfg.training.lr, weight_decay=cfg.training.weight_decay)
 
-    sl2 = MatrixGroup(3, 2)
+    sl2 = SL2R()
 
     # training loop
     start_time = time.time()

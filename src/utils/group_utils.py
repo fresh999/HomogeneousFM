@@ -87,22 +87,32 @@ class SL2R(MatrixGroup):
         out[mask_p] = I[mask_p] + x[mask_p]
         return out
 
-    def log(self, g: torch.Tensor) -> torch.Tensor:
+    def log(self, g: torch.Tensor, eps: float = 1e-8) -> torch.Tensor:
         '''
         Assumes that g lies in the image of the exponential map. Spits out gibberish if it doesn't.
         Warning: unstable near t = 0. Change it.
         '''
-        I = torch.eye(2, device=g.device, dtype=g.dtype)
+
+        if g.ndim == 2:
+            g = g.unsqueeze(0)
+
+        I = torch.eye(2, device=g.device, dtype=g.dtype).expand_as(g)
+        out = torch.zeros_like(g)
+
         t = 0.5 * g.diagonal(offset=0, dim1=-1, dim2=-2).sum(-1)
 
-        if abs(t) > 1:
-            factor = torch.acosh(t) / torch.sqrt(t ** 2 - 1)
-        elif abs(t) < 1:
-            factor = torch.acos(t) / torch.sqrt(1 - t ** 2)
-        else:
-            return g-I
+        mask_h = torch.abs(t) > 1 + eps
+        mask_e = torch.abs(t) < 1 - eps
+        mask_p = torch.abs(t-1) <= eps
 
-        return factor * (g - t*I)
+        factor_h = torch.acosh(t[mask_h]) / torch.sqrt(t[mask_h] ** 2 - 1)
+        factor_e = torch.acos(t[mask_e]) / torch.sqrt(1 - t[mask_e] ** 2)
+
+        out[mask_h] = (g[mask_h] - t[mask_h][..., None, None] * I[mask_h]) * factor_h[:, None, None]
+        out[mask_e] = (g[mask_e] - t[mask_e][..., None, None] * I[mask_e]) * factor_e[:, None, None]
+        out[mask_p] = g[mask_p] - I[mask_p]
+
+        return out
 
 
 
