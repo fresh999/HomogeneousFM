@@ -47,19 +47,77 @@ class MatrixGroup(LieGroup):
         return torch.linalg.matrix_exp(x)
 
     def log(self, g: torch.Tensor) -> torch.Tensor:
-        return torch.from_numpy(logm(g.numpy()))
+        '''
+        Warning: very slow implementation since logm is not implemented on GPU (yet).
+        Override this method when a more efficient implementation exists.
+        '''
+        device = g.device
+        return torch.from_numpy(logm(g.cpu().numpy())).to(device)
 
+
+class SL2R(MatrixGroup):
+    def __init__(self, lie_algebra_basis: torch.Tensor = None) -> None:
+        super().__init__(3, 2, lie_algebra_basis)
+
+    def exp(self, x: torch.Tensor, eps: float = 1e-8) -> torch.Tensor:
+
+        '''
+        Assumes x is traceless (i.e. it lies in the Lie algebra of SL(2, R)). Spits out gibberish if it doesn't.
+        '''
+
+        I = torch.eye(2, device=x.device, dtype=x.dtype).expand(x.shape)
+        out = torch.zeros_like(x)
+
+        delta = x[..., 0, 0] ** 2 + x[..., 0, 1] * x[..., 1, 0]
+
+        mask_h = delta > eps
+        mask_e = delta < -eps
+        mask_p = torch.abs(delta) <= eps
+
+        lam = torch.sqrt(delta[mask_h])
+        cosh = torch.cosh(lam)
+        factor = torch.sinh(lam) / lam
+        out[mask_h] = cosh[..., None, None] * I[mask_h] + factor[..., None, None] * x[mask_h]
+
+        theta = torch.sqrt(-delta[mask_e])
+        cos = torch.cos(theta)
+        factor = torch.sin(theta) / theta
+        out[mask_e] = cos[..., None, None] * I[mask_e] + factor[..., None, None] * x[mask_e]
+
+        out[mask_p] = I[mask_p] + x[mask_p]
+        return out
+
+    def log(self, g: torch.Tensor) -> torch.Tensor:
+        '''
+        Assumes that g lies in the image of the exponential map. Spits out gibberish if it doesn't.
+        Warning: unstable near t = 0. Change it.
+        '''
+        I = torch.eye(2, device=g.device, dtype=g.dtype)
+        t = 0.5 * g.diagonal(offset=0, dim1=-1, dim2=-2).sum(-1)
+
+        if abs(t) > 1:
+            factor = torch.acosh(t) / torch.sqrt(t ** 2 - 1)
+        elif abs(t) < 1:
+            factor = torch.acos(t) / torch.sqrt(1 - t ** 2)
+        else:
+            return g-I
+
+        return factor * (g - t*I)
 
 
 
 if __name__ == '__main__':
 
-    circle = MatrixGroup(1, 2)
-    g = torch.Tensor(
-        [[0.0, -1.0],
-        [1.0, 0.0]]
+    G = SL2R()
+
+    x = torch.Tensor(
+        [[1.5, 1.9],
+         [3.78, -1.5]]
     )
 
-    log = circle.log(g)
-    print(circle.exp(log))
+    g = G.exp(x)
+    print(x)
+    print(g)
+    print(G.log(g))
+
 
