@@ -115,19 +115,101 @@ class SL2R(MatrixGroup):
         return out
 
 
+class SO3R(MatrixGroup):
+    def __init__(self, lie_algebra_basis: torch.Tensor = None) -> None:
+        super().__init__(3, 2, lie_algebra_basis)
+
+    def exp(self, x: torch.Tensor, eps: float = 1e-8) -> torch.Tensor:
+        '''
+        Assumes x is antisymmetric (i.e. it lies in the Lie algebra of SO(3)). Spits out gibberish if it doesn't.
+        Warning: unstable near theta = 0. Change it.
+        '''
+
+        I = torch.eye(3, device=x.device, dtype=x.dtype).expand_as(x)
+        out = torch.zeros_like(x)
+
+        x_1 = x[..., 2, 1].unsqueeze(-1) # shape (batch_dimesions, 1)
+        x_2 = x[..., 0, 2].unsqueeze(-1)
+        x_3 = x[..., 1, 0].unsqueeze(-1)
+        x_vec = torch.cat([x_1, x_2, x_3], dim=-1)
+
+        theta = torch.sqrt((x_vec ** 2).sum(-1))
+        x_vec = x_vec.unsqueeze(-1) # shape (batch_dimensions, 3, 1)
+        x_squared = torch.matmul(x_vec, x_vec.transpose(-1, -2)) - (theta ** 2)[..., None, None] * I
+
+        a = torch.sin(theta) / theta
+        b = (1 - torch.cos(theta)) / (theta ** 2)
+
+        mask_away = theta > eps
+        mask_zero = theta <= eps
+
+        out[mask_away] = I[mask_away] \
+                         + a[mask_away][..., None, None] * x[mask_away] \
+                         + b[mask_away][..., None, None] * x_squared[mask_away]
+        out[mask_zero] = I[mask_zero] + x[mask_zero] + 0.5 * x_squared[mask_zero]
+        return out
+
+    def log(self, g: torch.Tensor, eps: float = 1e-8) -> torch.Tensor:
+        '''
+        Assumes g is an orthogonal matrix. Spits out gibberish if it's not.
+        Warning: unstable at theta = 0. Change it.
+        '''
+
+        out = torch.zeros_like(g)
+
+        trace = torch.clamp(g.diagonal(offset=0, dim1=-1, dim2=-2).sum(-1), -1.0, 1.0)
+        theta = torch.acos(0.5 * (trace - 1))
+
+        g_asym = g - g.transpose(-1, -2)
+
+        mask_away = (torch.abs(theta) > eps) & (torch.abs(theta - torch.pi) > eps)
+        mask_zero = torch.abs(theta) <= eps
+        mask_pi = torch.abs(theta - torch.pi) <= eps
+
+        factor = theta / (2 * torch.sin(theta))
+        out[mask_away] = factor[mask_away][..., None, None] * g_asym[mask_away]
+
+        out[mask_zero] = g_asym[mask_zero]
+
+        g_pi = g[mask_pi]
+        u_abs = torch.zeros(g_pi.shape[:-2] + (3,), device=g.device, dtype=g.dtype)
+        for i in range(3):
+            idx = g_pi[..., i, i] + 1 > eps
+            u_abs[idx, i] = torch.sqrt((g_pi[idx, i, i] + 1) / 2)
+
+        vals, ids = torch.max(u_abs, dim=-1)
+        u = g_pi[torch.arange(g_pi.shape[0]), ids]
+        u /= vals[:, None]
+        u[torch.arange(g_pi.shape[0]), ids] = u_abs[torch.arange(g_pi.shape[0]), ids]
+        print(u)
+        print(u_abs)
+        print(vals)
+        print(ids)
+        print(u)
+
+
+
+
+
+        return None
+
+
+
+
+
+
+
 
 if __name__ == '__main__':
 
-    G = SL2R()
+    G = SO3R()
 
-    x = torch.Tensor(
-        [[1.5, 1.9],
-         [3.78, -1.5]]
-    )
+    torch.manual_seed(42)
 
-    g = G.exp(x)
-    print(x)
-    print(g)
-    print(G.log(g))
+    x = torch.randn(size=(2000, 3, 3))
+    x = x - x.transpose(-1, -2)
+
+    e = G.exp(x)
+    print(G.log(e))
 
 

@@ -10,6 +10,7 @@ import os
 from data_utils import project, sl2_noise
 from model import MLP
 from solver.ode_solver import ODESolver
+from utils.group_utils import SL2R
 from utils.model_wrapper import ModelWrapper
 
 
@@ -26,6 +27,8 @@ def visualize(cfg: DictConfig) -> None:
         depth=cfg.mlp.depth,
         activation=cfg.mlp.activation
     ).to(device)
+
+    G = SL2R()
 
     for cp_id in cfg.visual.checkpoint_id:
         # load model
@@ -44,7 +47,8 @@ def visualize(cfg: DictConfig) -> None:
 
         T = torch.linspace(0, 1, cfg.visual.n_steps, device=device)
         # sample noise from Sp(2) = SL(2, R)
-        x_init = sl2_noise(cfg.visual.batch_size, device=device)
+        g_init = sl2_noise(cfg.visual.batch_size, device=device)
+        x_init = G.log(g_init)
 
         solver = ODESolver(velocity_model=vf)
         sol = solver.sample(
@@ -56,7 +60,7 @@ def visualize(cfg: DictConfig) -> None:
         )
 
         # project data to upper half-plane
-        sol = project(sol)
+        sol = project(G.exp(sol))
         sol = sol.cpu().numpy()
         T = T.cpu()
 
