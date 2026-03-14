@@ -7,7 +7,7 @@ import numpy as np
 from omegaconf import DictConfig
 import os
 
-from data_utils import project, sl2_noise
+from data_utils import sl2_project, sl2_noise
 from model import MLP
 from solver.ode_solver import ODESolver
 from utils.group_utils import SL2R
@@ -60,7 +60,7 @@ def visualize(cfg: DictConfig) -> None:
         )
 
         # project data to upper half-plane
-        sol = project(G.exp(sol))
+        sol = sl2_project(G.exp(sol))
         sol = sol.cpu().numpy()
         T = T.cpu()
 

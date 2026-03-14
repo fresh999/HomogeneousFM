@@ -120,10 +120,8 @@ class SO3R(MatrixGroup):
         super().__init__(3, 2, lie_algebra_basis)
 
     def exp(self, x: torch.Tensor, eps: float = 1e-8) -> torch.Tensor:
-        '''
-        Assumes x is antisymmetric (i.e. it lies in the Lie algebra of SO(3)). Spits out gibberish if it doesn't.
-        Warning: unstable near theta = 0. Change it.
-        '''
+        #Assumes x is antisymmetric (i.e. it lies in the Lie algebra of SO(3)). Spits out gibberish if it doesn't.
+        #Warning: unstable near theta = 0. Change it.
 
         I = torch.eye(3, device=x.device, dtype=x.dtype).expand_as(x)
         out = torch.zeros_like(x)
@@ -157,8 +155,8 @@ class SO3R(MatrixGroup):
 
         out = torch.zeros_like(g)
 
-        trace = torch.clamp(g.diagonal(offset=0, dim1=-1, dim2=-2).sum(-1), -1.0, 1.0)
-        theta = torch.acos(0.5 * (trace - 1))
+        trace = g.diagonal(offset=0, dim1=-1, dim2=-2).sum(-1)
+        theta = torch.acos(torch.clamp(0.5 * (trace - 1), -1.0, 1.0))
 
         g_asym = g - g.transpose(-1, -2)
 
@@ -169,47 +167,50 @@ class SO3R(MatrixGroup):
         factor = theta / (2 * torch.sin(theta))
         out[mask_away] = factor[mask_away][..., None, None] * g_asym[mask_away]
 
-        out[mask_zero] = g_asym[mask_zero]
+        out[mask_zero] = 0.5 * g_asym[mask_zero]
 
-        g_pi = g[mask_pi]
-        u_abs = torch.zeros(g_pi.shape[:-2] + (3,), device=g.device, dtype=g.dtype)
-        for i in range(3):
-            idx = g_pi[..., i, i] + 1 > eps
-            u_abs[idx, i] = torch.sqrt((g_pi[idx, i, i] + 1) / 2)
+        if mask_pi.any():
+            g_pi = g[mask_pi]
+            u_abs = torch.zeros(g_pi.shape[:-2] + (3,), device=g.device, dtype=g.dtype)
+            for i in range(3):
+                idx = g_pi[..., i, i] + 1 > eps
+                u_abs[idx, i] = torch.sqrt((g_pi[idx, i, i] + 1) / 2)
 
-        vals, ids = torch.max(u_abs, dim=-1)
-        u = g_pi[torch.arange(g_pi.shape[0]), ids]
-        u /= vals[:, None]
-        u[torch.arange(g_pi.shape[0]), ids] = u_abs[torch.arange(g_pi.shape[0]), ids]
-        print(u)
-        print(u_abs)
-        print(vals)
-        print(ids)
-        print(u)
+            vals, ids = torch.max(u_abs, dim=-1)
+            u = g_pi[torch.arange(g_pi.shape[0]), ids]
+            u /= vals[:, None]
+            u[torch.arange(g_pi.shape[0]), ids] = u_abs[torch.arange(g_pi.shape[0]), ids]
 
+            ux = u[..., 0]
+            uy = u[..., 1]
+            uz = u[..., 2]
 
+            out[mask_pi] = torch.pi * torch.stack([
+                torch.stack([torch.zeros_like(ux), -uz, uy], dim=-1),
+                torch.stack([uz, torch.zeros_like(ux), -ux], dim=-1),
+                torch.stack([-uy, ux, torch.zeros_like(ux)], dim=-1)],
+                dim=-2
+            )
 
-
-
-        return None
-
-
-
-
-
+        return out
 
 
 
 if __name__ == '__main__':
 
+    torch.manual_seed(42)
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    print(f'Using device: {device}.')
+
     G = SO3R()
 
-    torch.manual_seed(42)
-
-    x = torch.randn(size=(2000, 3, 3))
+    x = torch.randn(size=(200, 3, 3), device=device)
     x = x - x.transpose(-1, -2)
 
     e = G.exp(x)
-    print(G.log(e))
+    log = G.log(e)
+    ee = G.exp(log)
+    err = torch.norm(e - ee, dim=tuple(range(1, e.ndim)))
+    print(err.mean())
 
 

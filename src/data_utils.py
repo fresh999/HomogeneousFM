@@ -16,21 +16,22 @@ def inf_train_gen(batch_size: int = 2048, device: str = 'cpu') -> torch.Tensor:
     data = torch.cat([x[:, None], y[:, None]], dim=1) / 0.45
     return data.float()
 
+
 def sl2_noise(batch_size: int = 2048, device: str = 'cpu') -> torch.Tensor:
     coeffs = torch.rand(batch_size, 3, device=device)
     a, b, c = coeffs[:, 0], coeffs[:, 1], coeffs[:, 2]
 
-    X = torch.zeros(batch_size, 2, 2, device=device)
-    X[:, 0, 0] = a
-    X[:, 1, 1] = -a
-    X[:, 0, 1] = b
-    X[:, 1, 0] = c
+    x = torch.zeros(batch_size, 2, 2, device=device)
+    x[:, 0, 0] = a
+    x[:, 1, 1] = -a
+    x[:, 0, 1] = b
+    x[:, 1, 0] = c
 
-    return torch.linalg.matrix_exp(X)
+    return torch.linalg.matrix_exp(x)
 
 
-def section(data: torch.Tensor) -> torch.Tensor:
-    '''Maps points on upper half-plane to symplectic group.'''
+def sl2_section(data: torch.Tensor) -> torch.Tensor:
+    '''Maps points on upper half-plane to SL(2, R).'''
 
     x, y = data[:, 0, None], data[:, 1, None]
     sqrt_y = torch.sqrt(y)
@@ -40,9 +41,10 @@ def section(data: torch.Tensor) -> torch.Tensor:
     return torch.stack([row_1, row_2], dim=1)
 
 
-def project(data: torch.Tensor) -> torch.Tensor:
-    '''Maps data points on Sp(2) to upper half-plane (Sp(2) acts on the upper half-plane by fractional transformations).
-    data.shape = [batch_size, 2, 2]
+def sl2_project(data: torch.Tensor) -> torch.Tensor:
+    '''
+    Maps data points on Sp(2) to upper half-plane (Sp(2) acts on the upper half-plane by fractional transformations).
+    data.shape = [batch_size, 2, 2].
     '''
 
     data = data.to(dtype=torch.cfloat)
@@ -53,23 +55,47 @@ def project(data: torch.Tensor) -> torch.Tensor:
     return torch.stack([w.real, w.imag], dim=-1)
 
 
-def augment_data_random(data: torch.Tensor, n_samples: int = 256) -> torch.Tensor:
-    '''Samples elements from U(1) and averages data around.
-    data.shape = [batch_size, 2, 2]
+def so3_noise(batch_size: int = 2048, device: str = 'cpu') -> torch.Tensor:
+    '''Samples noise from SO(3).'''
+
+    coeffs = torch.randn([batch_size, 3], device=device)
+    a, b, c = coeffs[:, 0], coeffs[:, 1], coeffs[:, 2]
+
+    x = torch.stack([
+        torch.stack([torch.zeros_like(a), a, b], dim=-1),
+        torch.stack([-a, torch.zeros_like(a), c], dim=-1),
+        torch.stack([-b, -c, torch.zeros_like(a)], dim=-1)
+    ], dim=-2)
+
+    return torch.linalg.matrix_exp(x)
+
+
+def so3_section(data: torch.Tensor, eps: float = 1e-8) -> torch.Tensor:
+    '''Maps data points on S^2 to representatives in SO(3).'''
+
+    n = torch.Tensor([0.0, 0.0, 1.0], device=data.device).reshape(1, -1)
+    I = torch.eye(3, dtype=data.dtype, device=data.device)[None, ...].expand(data.shape[:-1] + (3, 3))
+    out = torch.zeros_like(I)
+
+    delta = data[..., -1] - 1
+    mask_away = torch.abs(delta) > eps
+    mask_north = torch.abs(delta) <= eps
+
+    factor = 1 / (1 - data[mask_away][..., -1])
+    out[mask_away] = I[mask_away] - factor[..., None, None] * torch.matmul((data[mask_away] - n).unsqueeze(-1), (data[mask_away] - n).unsqueeze(-2))
+    out[mask_north] = I[mask_north]
+    return out
+
+
+def so3_project(data: torch.Tensor) -> torch.Tensor:
+    '''
+    Projects data points on SO(3, R) to S^2.
+    data.shape = [bs, 3, 3].
     '''
 
-    def gen_group_elements(n_samples: int, device: str) -> torch.Tensor:
-        theta = 2 * pi * torch.rand(n_samples, device=device)
-        sin = torch.sin(theta)
-        cos = torch.cos(theta)
-        row_1 = torch.cat([cos[:, None], sin[:, None]], dim=1)
-        row_2 = torch.cat([-sin[:, None], cos[:, None]], dim=1)
-        g = torch.stack([row_1, row_2], dim=1)
-        return g
+    n = torch.Tensor([0.0, 0.0, 1.0], device=data.device)
+    return torch.matmul(data, n)
 
-    gs = gen_group_elements(n_samples, data.device).unsqueeze(0) # shape [1, n_samples, 2, 2]
-    aug_data = torch.matmul(data.unsqueeze(1), gs)
-    return aug_data.reshape(-1, aug_data.shape[-2], aug_data.shape[-1])
 
 
 
@@ -78,13 +104,13 @@ def augment_data_random(data: torch.Tensor, n_samples: int = 256) -> torch.Tenso
 if __name__ == '__main__':
 
     torch.manual_seed(42)
-    batch_size = 4096
+    batch_size = 4
 
     '''
     data = inf_train_gen(batch_size)
-    sec = section(data)
+    sec = sl2_section(data)
     # sec = augment_data_random(sec, 2)
-    p = project(sec)
+    p = sl2_project(sec)
 
     plot = plt.scatter(data[:, 0].detach(), data[:, 1].detach(), marker='.', alpha=0.5)
     # plt.show()
@@ -95,11 +121,17 @@ if __name__ == '__main__':
     plt.savefig('proj.pdf')
     '''
 
-    noise = project(sl2_noise(batch_size))
+    # noise = sl2_project(sl2_noise(batch_size))
 
-    plt.scatter(noise[:, 0].detach(), noise[:, 1].detach(), marker='.', alpha=0.5)
-    plt.savefig('noise.pdf')
+    #plt.scatter(noise[:, 0].detach(), noise[:, 1].detach(), marker='.', alpha=0.5)
+    # plt.savefig('noise.pdf')
 
+    noise = so3_noise(batch_size)
+
+    x = torch.randn([batch_size, 3])
+    norm = x.norm(dim=-1)
+    x /= norm[..., None]
+    sec = so3_section(x)
 
 
 

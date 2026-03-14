@@ -1,7 +1,7 @@
 import torch
 
 from model import MLP
-from data_utils import inf_train_gen, section, sl2_noise
+from data_utils import inf_train_gen, sl2_section, sl2_noise
 from path.affine import CondOTProbPath
 from utils.group_utils import SL2R
 
@@ -40,7 +40,7 @@ def train(cfg: DictConfig) -> None:
     for i in range(cfg.training.iterations):
         optim.zero_grad()
 
-        g_1 = section(inf_train_gen(batch_size=cfg.training.batch_size, device=device))
+        g_1 = sl2_section(inf_train_gen(batch_size=cfg.training.batch_size, device=device))
         g_0 = sl2_noise(batch_size=cfg.training.batch_size, device=device)
         t = torch.rand(g_1.shape[0]).to(device)
 
