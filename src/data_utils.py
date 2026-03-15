@@ -6,12 +6,16 @@ from torch.linalg import vector_norm
 import matplotlib.pyplot as plt
 
 
-def inf_train_gen(batch_size: int = 2048, device: str = 'cpu') -> torch.Tensor:
-    '''Generates checkerboard distribution on the upper half-plane model of hyperbolic space.'''
+def inf_train_gen(batch_size: int = 2048, device: str = 'cpu', upper=True) -> torch.Tensor:
+    '''
+    Generates checkerboard distribution on the plane.
+    If upper is True, the points are generated on the upper half-plane.
+    '''
 
+    shift = 2.25 if upper else 0.0
     x = torch.rand(batch_size, device=device) * 4 - 2
     y = torch.rand(batch_size, device=device) - torch.randint(high=2, size=(batch_size,), device=device) * 2
-    y += (torch.floor(x) % 2 + 2.25)
+    y += (torch.floor(x) % 2 + shift)
 
     data = torch.cat([x[:, None], y[:, None]], dim=1) / 0.45
     return data.float()
@@ -97,6 +101,35 @@ def so3_project(data: torch.Tensor) -> torch.Tensor:
     return torch.matmul(data, n)
 
 
+def stereo_project(data: torch.Tensor, eps: float = 1e-8) -> torch.Tensor:
+    '''
+    Stereographically projects points from the sphere to the plane (as implemented, it works in any dimension).
+    Maps the north pole to zero (there might be a better choice here, for instance discarding any occurrence of the north pole).
+    '''
+
+    out = torch.zeros(data.shape[:-1] + (data.shape[-1] - 1,), dtype=data.dtype, device=data.device)
+
+    delta = 1 - data[..., -1]
+    mask_away = torch.abs(delta) > eps
+    mask_north = torch.abs(delta) <= eps
+
+    out[mask_away] = data[mask_away][..., :-1] / delta[mask_away].reshape(-1, *([1] * (data.ndim - 1)))
+    out[mask_north] = torch.zeros_like(data)[mask_north][..., :-1]
+    return out
+
+
+def stereo_inverse(data: torch.Tensor) -> torch.Tensor:
+    '''Wraps points from plane to sphere using the inverse of the stereographic projection (as implemented, it works in any dimension).'''
+
+    norm_squared = data.norm(dim=tuple(range(1, data.ndim)), keepdim=True) ** 2
+    out = (2 / (1 + norm_squared)) * data
+    v = (norm_squared.reshape(-1) - 1) / (norm_squared.reshape(-1) + 1)
+    return torch.cat([out, v[..., None]], dim=-1)
+
+
+
+
+
 
 
 
@@ -104,7 +137,7 @@ def so3_project(data: torch.Tensor) -> torch.Tensor:
 if __name__ == '__main__':
 
     torch.manual_seed(42)
-    batch_size = 4
+    batch_size = 100
 
     '''
     data = inf_train_gen(batch_size)
@@ -129,9 +162,15 @@ if __name__ == '__main__':
     noise = so3_noise(batch_size)
 
     x = torch.randn([batch_size, 3])
+    x = torch.cat([x, torch.Tensor([0.0, 0.0, 1.0]).unsqueeze(0)], dim=0)
     norm = x.norm(dim=-1)
     x /= norm[..., None]
-    sec = so3_section(x)
+
+    print(x)
+    p = stereo_project(x)
+    print(p)
+    print(stereo_inverse(p))
+    print(x - stereo_inverse(p))
 
 
 

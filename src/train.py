@@ -29,7 +29,7 @@ def train(cfg: DictConfig) -> None:
 
     path = CondOTProbPath()
 
-    optim = torch.optim.AdamW(vf.parameters(), lr=cfg.training.lr, weight_decay=1e-4)
+    optim = torch.optim.AdamW(vf.parameters(), lr=cfg.training.lr, weight_decay=cfg.training.weight_decay)
 
     # training loop
     start_time = time.time()
