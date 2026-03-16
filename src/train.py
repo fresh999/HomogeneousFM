@@ -21,7 +21,7 @@ def train(cfg: DictConfig) -> None:
 
     mode = cfg.mode
     if mode not in cfg.mlp:
-        raise ValueError('Unknown mode: {mode}.')
+        raise ValueError(f'Unknown mode: {mode}.')
 
     model_cfg = cfg.mlp[mode]
     vf = MLP(**model_cfg).to(device)

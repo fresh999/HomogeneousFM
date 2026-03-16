@@ -100,12 +100,9 @@ def so3_project(data: torch.Tensor) -> torch.Tensor:
     n = torch.Tensor([0.0, 0.0, 1.0], device=data.device)
     return torch.matmul(data, n)
 
-
+'''
 def stereo_project(data: torch.Tensor, eps: float = 1e-8) -> torch.Tensor:
-    '''
-    Stereographically projects points from the sphere to the plane (as implemented, it works in any dimension).
-    Maps the north pole to zero (there might be a better choice here, for instance discarding any occurrence of the north pole).
-    '''
+
 
     out = torch.zeros(data.shape[:-1] + (data.shape[-1] - 1,), dtype=data.dtype, device=data.device)
 
@@ -116,6 +113,21 @@ def stereo_project(data: torch.Tensor, eps: float = 1e-8) -> torch.Tensor:
     out[mask_away] = data[mask_away][..., :-1] / delta[mask_away].reshape(-1, *([1] * (data.ndim - 1)))
     out[mask_north] = torch.zeros_like(data)[mask_north][..., :-1]
     return out
+'''
+
+def stereo_project(data: torch.Tensor, eps: float = 1e-8) -> torch.Tensor:
+    '''
+    Stereographically projects points from the sphere to the plane (as implemented, it works in any dimension).
+    Maps the north pole to zero (there might be a better choice here, for instance discarding any occurrence of the north pole).
+    '''
+
+    delta = 1 - data[..., -1:]
+    safe_delta = torch.where(torch.abs(delta) > eps, delta, torch.ones_like(delta))
+    out = data[..., :-1] / safe_delta
+    out = torch.where(torch.abs(delta) > eps, out, torch.zeros_like(out))
+    return out
+
+
 
 
 def stereo_inverse(data: torch.Tensor) -> torch.Tensor:
@@ -125,11 +137,6 @@ def stereo_inverse(data: torch.Tensor) -> torch.Tensor:
     out = (2 / (1 + norm_squared)) * data
     v = (norm_squared.reshape(-1) - 1) / (norm_squared.reshape(-1) + 1)
     return torch.cat([out, v[..., None]], dim=-1)
-
-
-
-
-
 
 
 

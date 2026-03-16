@@ -1,9 +1,9 @@
 import torch
 
 from model import MLP
-from data_utils import inf_train_gen, sl2_section, sl2_noise
+from data_utils import inf_train_gen, sl2_noise, sl2_section, so3_noise, so3_section, stereo_inverse
 from path.affine import CondOTProbPath
-from utils.group_utils import SL2R
+from utils.group_utils import SL2R, SO3R
 
 import hydra
 from omegaconf import DictConfig
@@ -21,33 +21,42 @@ def train(cfg: DictConfig) -> None:
 
     torch.manual_seed(cfg.seed)
 
-    vf = MLP(
-        input_features=cfg.mlp.input_features,
-        output_features=cfg.mlp.output_features,
-        width=cfg.mlp.width,
-        depth=cfg.mlp.depth,
-        activation=cfg.mlp.activation
-    ).to(device)
+    mode = cfg.mode
+    if mode not in cfg.mlp:
+        raise ValueError(f'Unknown mode: {mode}.')
+
+    model_cfg = cfg.mlp[mode]
+    vf = MLP(**model_cfg).to(device)
 
     path = CondOTProbPath()
 
     optim = torch.optim.AdamW(vf.parameters(), lr=cfg.training.lr, weight_decay=cfg.training.weight_decay)
 
-    sl2 = SL2R()
+    if mode == 'sl2':
+        G = SL2R()
+    elif mode == 'so3':
+        G = SO3R()
 
     # training loop
     start_time = time.time()
     for i in range(cfg.training.iterations):
         optim.zero_grad()
 
-        g_1 = sl2_section(inf_train_gen(batch_size=cfg.training.batch_size, device=device))
-        g_0 = sl2_noise(batch_size=cfg.training.batch_size, device=device)
+        if mode == 'sl2':
+            g_1 = sl2_section(inf_train_gen(batch_size=cfg.training.batch_size, device=device, upper=True))
+            g_0 = sl2_noise(batch_size=cfg.training.batch_size, device=device)
+        elif mode == 'so3':
+            data = inf_train_gen(batch_size=cfg.training.batch_size, device=device, upper=False)
+            data = stereo_inverse(data)
+            g_1 = so3_section(data)
+            g_0 = so3_noise(batch_size=cfg.training.batch_size, device=device)
+
         t = torch.rand(g_1.shape[0]).to(device)
 
         with warnings.catch_warnings():
             warnings.simplefilter('ignore', RuntimeWarning)
-            x_1 = sl2.log(g_1).to(dtype=torch.float32)
-            x_0 = sl2.log(g_0).to(dtype=torch.float32)
+            x_1 = G.log(g_1).to(dtype=torch.float32)
+            x_0 = G.log(g_0).to(dtype=torch.float32)
 
         path_sample = path.sample(x_0=x_0, x_1=x_1, t=t)
 
@@ -68,7 +77,7 @@ def train(cfg: DictConfig) -> None:
                 'model_state_dict': vf.state_dict(),
                 'optimizer_state_dict': optim.state_dict(),
                 'loss': loss
-            }, os.path.join(cfg.training.output_dir, f'checkpoint_iter_{i}.pt'))
+            }, os.path.join(cfg.training.output_dir, f'lie_{mode}_checkpoint_iter_{i}.pt'))
 
 
 if __name__ == '__main__':
