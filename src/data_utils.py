@@ -6,7 +6,7 @@ from torch.linalg import vector_norm
 import matplotlib.pyplot as plt
 
 
-def inf_train_gen(batch_size: int = 2048, device: str = 'cpu', upper=True) -> torch.Tensor:
+def inf_train_gen(batch_size: int = 2048, device: str = 'cpu', upper: bool = True) -> torch.Tensor:
     '''
     Generates checkerboard distribution on the plane.
     If upper is True, the points are generated on the upper half-plane.
@@ -137,28 +137,28 @@ def stereo_inverse(data: torch.Tensor) -> torch.Tensor:
 if __name__ == '__main__':
 
     torch.manual_seed(42)
-    batch_size = 100
+    batch_size = 4096
 
-    '''
-    data = inf_train_gen(batch_size)
-    sec = sl2_section(data)
+    data = stereo_inverse(inf_train_gen(batch_size, upper=False))
+    sec = so3_section(data)
     # sec = augment_data_random(sec, 2)
-    p = sl2_project(sec)
+    p = stereo_project(so3_project(sec))
 
-    plot = plt.scatter(data[:, 0].detach(), data[:, 1].detach(), marker='.', alpha=0.5)
+    pp = stereo_project(data)
+    plot = plt.scatter(pp[:, 0].detach(), pp[:, 1].detach(), marker='.', alpha=0.5)
     # plt.show()
     plt.savefig('data.pdf')
     plot.remove()
 
     plt.scatter(p[:, 0].detach(), p[:, 1].detach(), marker='.', alpha=0.5)
     plt.savefig('proj.pdf')
-    '''
 
     # noise = sl2_project(sl2_noise(batch_size))
 
     #plt.scatter(noise[:, 0].detach(), noise[:, 1].detach(), marker='.', alpha=0.5)
     # plt.savefig('noise.pdf')
 
+    '''
     noise = so3_noise(batch_size)
 
     x = torch.randn([batch_size, 3])
@@ -171,6 +171,7 @@ if __name__ == '__main__':
     print(p)
     print(stereo_inverse(p))
     print(x - stereo_inverse(p))
+    '''
 
 
 

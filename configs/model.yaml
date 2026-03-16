@@ -1,7 +1,14 @@
 mlp:
-  input_features: 4
-  output_features: 4
-  depth: 3
-  width: 512
-  activation: swish
+  sl2:
+    input_features: 4
+    output_features: 4
+    depth: 3
+    width: 512
+    activation: swish
 
+  so3:
+    input_features: 9
+    output_features: 9
+    depth: 3
+    width: 512
+    activation: swish

@@ -1,5 +1,5 @@
 training:
-  batch_size: 256
+  batch_size: 128
   iterations: 10
   lr: 0.001
   n_samples: 1

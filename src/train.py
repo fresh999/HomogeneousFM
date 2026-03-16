@@ -1,7 +1,7 @@
 import torch
 
 from model import MLP
-from data_utils import inf_train_gen, sl2_section, sl2_noise
+from data_utils import inf_train_gen, sl2_section, sl2_noise, so3_section, so3_noise, stereo_inverse
 from path.affine import CondOTProbPath
 
 import hydra
@@ -19,6 +19,14 @@ def train(cfg: DictConfig) -> None:
 
     torch.manual_seed(cfg.seed)
 
+    mode = cfg.mode
+    if mode not in cfg.mlp:
+        raise ValueError('Unknown mode: {mode}.')
+
+    model_cfg = cfg.mlp[mode]
+    vf = MLP(**model_cfg).to(device)
+
+    '''
     vf = MLP(
         input_features=cfg.mlp.input_features,
         output_features=cfg.mlp.output_features,
@@ -26,6 +34,7 @@ def train(cfg: DictConfig) -> None:
         depth=cfg.mlp.depth,
         activation=cfg.mlp.activation
     ).to(device)
+    '''
 
     path = CondOTProbPath()
 
@@ -36,8 +45,17 @@ def train(cfg: DictConfig) -> None:
     for i in range(cfg.training.iterations):
         optim.zero_grad()
 
-        x_1 = sl2_section(inf_train_gen(batch_size=cfg.training.batch_size, device=device))
-        x_0 = sl2_noise(batch_size=cfg.training.batch_size, device=device)
+        if mode == 'sl2':
+            x_1 = sl2_section(inf_train_gen(batch_size=cfg.training.batch_size, device=device, upper=True))
+            x_0 = sl2_noise(batch_size=cfg.training.batch_size, device=device)
+        elif mode == 'so3':
+            data = inf_train_gen(batch_size=cfg.training.batch_size, device=device, upper=False)
+            data = stereo_inverse(data)
+            x_1 = so3_section(data)
+            x_0 = so3_noise(batch_size=cfg.training.batch_size, device=device)
+        else:
+            raise ValueError('Unknown mode: {mode}.')
+
         t = torch.rand(x_1.shape[0]).to(device)
 
         path_sample = path.sample(x_0=x_0, x_1=x_1, t=t)
@@ -59,7 +77,7 @@ def train(cfg: DictConfig) -> None:
                 'model_state_dict': vf.state_dict(),
                 'optimizer_state_dict': optim.state_dict(),
                 'loss': loss
-            }, os.path.join(cfg.training.output_dir, f'checkpoint_iter_{i}.pt'))
+            }, os.path.join(cfg.training.output_dir, f'{mode}_checkpoint_iter_{i}.pt'))
 
 
 if __name__ == '__main__':

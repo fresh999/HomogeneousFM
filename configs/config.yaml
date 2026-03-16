@@ -5,3 +5,4 @@ defaults:
   - visualization
 
 seed: 42
+mode: so3
