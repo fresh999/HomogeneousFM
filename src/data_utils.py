@@ -77,7 +77,7 @@ def so3_noise(batch_size: int = 2048, device: str = 'cpu') -> torch.Tensor:
 def so3_section(data: torch.Tensor, eps: float = 1e-8) -> torch.Tensor:
     '''Maps data points on S^2 to representatives in SO(3).'''
 
-    n = torch.Tensor([0.0, 0.0, 1.0], device=data.device).reshape(1, -1)
+    n = torch.tensor([0.0, 0.0, 1.0], dtype=data.dtype, device=data.device).reshape(1, -1)
     I = torch.eye(3, dtype=data.dtype, device=data.device)[None, ...].expand(data.shape[:-1] + (3, 3))
     out = torch.zeros_like(I)
 
@@ -97,23 +97,9 @@ def so3_project(data: torch.Tensor) -> torch.Tensor:
     data.shape = [bs, 3, 3].
     '''
 
-    n = torch.Tensor([0.0, 0.0, 1.0], device=data.device)
+    n = torch.tensor([0.0, 0.0, 1.0], dtype=data.dtype, device=data.device)
     return torch.matmul(data, n)
 
-'''
-def stereo_project(data: torch.Tensor, eps: float = 1e-8) -> torch.Tensor:
-
-
-    out = torch.zeros(data.shape[:-1] + (data.shape[-1] - 1,), dtype=data.dtype, device=data.device)
-
-    delta = 1 - data[..., -1]
-    mask_away = torch.abs(delta) > eps
-    mask_north = torch.abs(delta) <= eps
-
-    out[mask_away] = data[mask_away][..., :-1] / delta[mask_away].reshape(-1, *([1] * (data.ndim - 1)))
-    out[mask_north] = torch.zeros_like(data)[mask_north][..., :-1]
-    return out
-'''
 
 def stereo_project(data: torch.Tensor, eps: float = 1e-8) -> torch.Tensor:
     '''
@@ -126,8 +112,6 @@ def stereo_project(data: torch.Tensor, eps: float = 1e-8) -> torch.Tensor:
     out = data[..., :-1] / safe_delta
     out = torch.where(torch.abs(delta) > eps, out, torch.zeros_like(out))
     return out
-
-
 
 
 def stereo_inverse(data: torch.Tensor) -> torch.Tensor:

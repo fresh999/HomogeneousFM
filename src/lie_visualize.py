@@ -96,7 +96,7 @@ def visualize(cfg: DictConfig) -> None:
         plt.savefig(
             os.path.join(
                 cfg.visual.output_dir,
-                f'{mode}_cp_{cp_id}.pdf'
+                f'lie_{mode}_cp_{cp_id}.pdf'
             )
         )
 
