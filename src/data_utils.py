@@ -73,9 +73,8 @@ def so3_noise(batch_size: int = 2048, device: str = 'cpu') -> torch.Tensor:
 
     return torch.linalg.matrix_exp(x)
 
-
+'''
 def so3_section(data: torch.Tensor, eps: float = 1e-8) -> torch.Tensor:
-    '''Maps data points on S^2 to representatives in SO(3).'''
 
     n = torch.tensor([0.0, 0.0, 1.0], dtype=data.dtype, device=data.device).reshape(1, -1)
     I = torch.eye(3, dtype=data.dtype, device=data.device)[None, ...].expand(data.shape[:-1] + (3, 3))
@@ -89,6 +88,16 @@ def so3_section(data: torch.Tensor, eps: float = 1e-8) -> torch.Tensor:
     out[mask_away] = I[mask_away] - factor[..., None, None] * torch.matmul((data[mask_away] - n).unsqueeze(-1), (data[mask_away] - n).unsqueeze(-2))
     out[mask_north] = I[mask_north]
     return out
+'''
+
+def so3_section(data: torch.Tensor, eps: float = 1e-8) -> torch.Tensor:
+    '''Maps data points on S^2 to representatives in SO(3).'''
+
+    n = torch.tensor([0.0, 0.0, 1.0], dtype=data.dtype, device=data.device).reshape(1, -1)
+
+    axis = torch.linalg.cross(n, x)
+    cos = torch.linalg.vecdot(n, x)
+
 
 
 def so3_project(data: torch.Tensor) -> torch.Tensor:

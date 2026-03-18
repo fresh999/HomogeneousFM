@@ -9,3 +9,6 @@ We do FM on G. We interpolate to create a conditional probability path and we ge
 --> in case the distributions (both the dataset and the empirical one) are not H-invariant, we need to augment them;
 --> the model needs to be H-equivariant (which in mathematically correct terms means the following: the vector field we are learning is invariant under the pushforward by right-multiplications R_h for all h in H).
 
+
+Bugs:
+--> in src/data_utils.py, so3_section generates matrices with determinant -1, hence in O(3) \ SO(3). Use Rodrigues' formula instead.
