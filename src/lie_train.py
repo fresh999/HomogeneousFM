@@ -49,7 +49,6 @@ def train(cfg: DictConfig) -> None:
             data = inf_train_gen(batch_size=cfg.training.batch_size, device=device, upper=False)
             data = stereo_inverse(data)
             g_1 = so3_section(data)
-            print(torch.det(g_1))
             g_0 = so3_noise(batch_size=cfg.training.batch_size, device=device)
 
         t = torch.rand(g_1.shape[0]).to(device)

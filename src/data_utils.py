@@ -73,7 +73,7 @@ def so3_noise(batch_size: int = 2048, device: str = 'cpu') -> torch.Tensor:
 
     return torch.linalg.matrix_exp(x)
 
-'''
+"""
 def so3_section(data: torch.Tensor, eps: float = 1e-8) -> torch.Tensor:
 
     n = torch.tensor([0.0, 0.0, 1.0], dtype=data.dtype, device=data.device).reshape(1, -1)
@@ -88,16 +88,38 @@ def so3_section(data: torch.Tensor, eps: float = 1e-8) -> torch.Tensor:
     out[mask_away] = I[mask_away] - factor[..., None, None] * torch.matmul((data[mask_away] - n).unsqueeze(-1), (data[mask_away] - n).unsqueeze(-2))
     out[mask_north] = I[mask_north]
     return out
-'''
+"""
 
 def so3_section(data: torch.Tensor, eps: float = 1e-8) -> torch.Tensor:
-    '''Maps data points on S^2 to representatives in SO(3).'''
+    '''Maps data points on S^2 to representatives in SO(3).
+    Warning: does not handle batch size dimensions robustly. It assumes data.shape = [bs, 3]
+    '''
 
     n = torch.tensor([0.0, 0.0, 1.0], dtype=data.dtype, device=data.device).reshape(1, -1)
+    I = torch.eye(3, dtype=data.dtype, device=data.device)[None, ...].expand(data.shape[:-1] + (3, 3))
+    out = torch.zeros_like(I)
 
-    axis = torch.linalg.cross(n, x)
-    cos = torch.linalg.vecdot(n, x)
+    mask_north = torch.abs(data[..., -1] - 1) <= eps
+    mask_south = torch.abs(data[..., -1] + 1) <= eps
+    mask_away = ~(mask_north | mask_south)
 
+    axis = torch.linalg.cross(n, data)
+    axis = axis[mask_away] / axis[mask_away].norm(dim=-1)[..., None]
+    cos = torch.linalg.vecdot(n, data)[..., None, None]
+
+    K = torch.zeros_like(I[mask_away])
+    K[..., 0, 1] = -axis[..., 2]
+    K[..., 1, 0] = axis[..., 2]
+    K[..., 0, 2] = axis[..., 1]
+    K[..., 2, 0] = -axis[..., 1]
+    K[..., 1, 2] = -axis[..., 0]
+    K[..., 2, 1] = axis[..., 0]
+
+    out[mask_away] = I[mask_away] + torch.sqrt(1 - cos ** 2) * K + (1 - cos) * torch.matmul(K, K)
+    out[mask_north] = I[mask_north]
+    out[mask_south] = torch.diag(torch.tensor([1, -1, -1], dtype=data.dtype, device=data.device))
+
+    return out
 
 
 def so3_project(data: torch.Tensor) -> torch.Tensor:
@@ -137,19 +159,18 @@ def stereo_inverse(data: torch.Tensor) -> torch.Tensor:
 if __name__ == '__main__':
 
     torch.manual_seed(42)
-    batch_size = 4096
+    batch_size = 40960
 
     data = stereo_inverse(inf_train_gen(batch_size, upper=False))
-    sec = so3_section(data)
-    # sec = augment_data_random(sec, 2)
-    p = stereo_project(so3_project(sec))
-
     pp = stereo_project(data)
     plot = plt.scatter(pp[:, 0].detach(), pp[:, 1].detach(), marker='.', alpha=0.5)
-    # plt.show()
     plt.savefig('data.pdf')
     plot.remove()
 
+
+    sec = so3_section(data)
+    print((sec.det() -1).norm())
+    p = stereo_project(so3_project(sec))
     plt.scatter(p[:, 0].detach(), p[:, 1].detach(), marker='.', alpha=0.5)
     plt.savefig('proj.pdf')
 
