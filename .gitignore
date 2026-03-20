@@ -1,5 +1,7 @@
+.gitignore
 .venv/
 bin/
+latex/
 outputs/
 src/outputs/
 todo.txt
