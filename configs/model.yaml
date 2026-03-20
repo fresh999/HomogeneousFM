@@ -12,3 +12,19 @@ mlp:
     depth: 3
     width: 512
     activation: swish
+
+  reduced:
+    sl2:
+      input_features: 3
+      output_features: 3
+      depth: 3
+      width: 512
+      activation: swish
+
+    so3:
+      input_features: 3
+      output_features: 3
+      depth: 3
+      width: 512
+      activation:  swish
+

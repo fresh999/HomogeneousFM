@@ -59,6 +59,28 @@ def sl2_project(data: torch.Tensor) -> torch.Tensor:
     return torch.stack([w.real, w.imag], dim=-1)
 
 
+def sl2_from_lie_algebra_params(data: torch.Tensor) -> torch.Tensor:
+    '''Returns sl2 = Lie(SL2) element from params.'''
+
+    out = torch.zeros(size=data.shape[:-1] + (2, 2), dtype=data.dtype, device=data.device)
+    out[..., 0, 0] = data[..., 0]
+    out[..., 0, 1] = data[..., 1]
+    out[..., 1, 0] = data[..., 2]
+    out[..., 1, 1] = -data[..., 0]
+
+    return out
+
+def sl2_to_lie_algebra_params(data: torch.Tensor) -> torch.Tensor:
+    '''Extracts relevant parameters from an element in sl2 = Lie(SL2).'''
+
+    out = torch.zeros(size=data.shape[:-2] + (3,), dtype=data.dtype, device=data.device)
+    out[..., 0] = data[..., 0, 0]
+    out[..., 1] = data[..., 0, 1]
+    out[..., 2] = data[..., 1, 0]
+
+    return out
+
+
 def so3_noise(batch_size: int = 2048, device: str = 'cpu') -> torch.Tensor:
     '''Samples noise from SO(3).'''
 
@@ -73,22 +95,6 @@ def so3_noise(batch_size: int = 2048, device: str = 'cpu') -> torch.Tensor:
 
     return torch.linalg.matrix_exp(x)
 
-"""
-def so3_section(data: torch.Tensor, eps: float = 1e-8) -> torch.Tensor:
-
-    n = torch.tensor([0.0, 0.0, 1.0], dtype=data.dtype, device=data.device).reshape(1, -1)
-    I = torch.eye(3, dtype=data.dtype, device=data.device)[None, ...].expand(data.shape[:-1] + (3, 3))
-    out = torch.zeros_like(I)
-
-    delta = data[..., -1] - 1
-    mask_away = torch.abs(delta) > eps
-    mask_north = torch.abs(delta) <= eps
-
-    factor = 1 / (1 - data[mask_away][..., -1])
-    out[mask_away] = I[mask_away] - factor[..., None, None] * torch.matmul((data[mask_away] - n).unsqueeze(-1), (data[mask_away] - n).unsqueeze(-2))
-    out[mask_north] = I[mask_north]
-    return out
-"""
 
 def so3_section(data: torch.Tensor, eps: float = 1e-8) -> torch.Tensor:
     '''Maps data points on S^2 to representatives in SO(3).
@@ -132,6 +138,32 @@ def so3_project(data: torch.Tensor) -> torch.Tensor:
     return torch.matmul(data, n)
 
 
+def so3_from_lie_algebra_params(data: torch.Tensor) -> torch.Tensor:
+    '''Returns so3 = Lie(SO3) element from params.'''
+
+    out = torch.zeros(size=data.shape[:-1] + (3, 3), dtype=data.dtype, device=data.device)
+    out[..., 0, 0] = out[..., 1, 1] = out[..., 2, 2] = 0
+    out[..., 0, 1] = data[..., 0]
+    out[..., 0, 2] = data[..., 1]
+    out[..., 1, 2] = data[..., 2]
+    out[..., 1, 0] = -data[..., 0]
+    out[..., 2, 0] = -data[..., 1]
+    out[..., 2, 1] = -data[..., 2]
+
+    return out
+
+
+def so3_to_lie_algebra_params(data: torch.Tensor) -> torch.Tensor:
+    '''Extracts relevant parameters from an element in so3 = Lie(SO3).'''
+
+    out = torch.zeros(size=data.shape[:-2] + (3,), dtype=data.dtype, device=data.device)
+    out[..., 0] = data[..., 0, 1]
+    out[..., 1] = data[..., 0, 2]
+    out[..., 2] = data[..., 1, 2]
+
+    return out
+
+
 def stereo_project(data: torch.Tensor, eps: float = 1e-8) -> torch.Tensor:
     '''
     Stereographically projects points from the sphere to the plane (as implemented, it works in any dimension).
@@ -159,8 +191,9 @@ def stereo_inverse(data: torch.Tensor) -> torch.Tensor:
 if __name__ == '__main__':
 
     torch.manual_seed(42)
-    batch_size = 40960
+    batch_size = 4
 
+    '''
     data = stereo_inverse(inf_train_gen(batch_size, upper=False))
     pp = stereo_project(data)
     plot = plt.scatter(pp[:, 0].detach(), pp[:, 1].detach(), marker='.', alpha=0.5)
@@ -173,6 +206,7 @@ if __name__ == '__main__':
     p = stereo_project(so3_project(sec))
     plt.scatter(p[:, 0].detach(), p[:, 1].detach(), marker='.', alpha=0.5)
     plt.savefig('proj.pdf')
+    '''
 
     # noise = sl2_project(sl2_noise(batch_size))
 
