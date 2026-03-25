@@ -22,7 +22,8 @@ def inf_train_gen(batch_size: int = 2048, device: str = 'cpu', upper: bool = Tru
 
 
 def sl2_noise(batch_size: int = 2048, device: str = 'cpu') -> torch.Tensor:
-    coeffs = torch.rand(batch_size, 3, device=device)
+    coeffs = torch.randn(batch_size, 3, device=device)
+    coeffs *= 0.5
     a, b, c = coeffs[:, 0], coeffs[:, 1], coeffs[:, 2]
 
     x = torch.zeros(batch_size, 2, 2, device=device)

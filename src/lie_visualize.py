@@ -21,7 +21,7 @@ def visualize(cfg: DictConfig) -> None:
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
     mode = cfg.mode
-    if mode not in cfg.mode:
+    if mode not in cfg.mlp:
         raise ValueError(f'Unknown mode: {mode}')
 
     model_cfg = cfg.mlp[mode]

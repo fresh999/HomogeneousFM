@@ -10,6 +10,7 @@ import os
 from data_utils import sl2_noise, sl2_project, so3_noise, so3_project, stereo_project
 from model import MLP
 from solver.ode_solver import ODESolver
+from utils.group_utils import SL2R, SO3R
 from utils.model_wrapper import ModelWrapper
 
 
@@ -20,7 +21,7 @@ def visualize(cfg: DictConfig) -> None:
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
     mode = cfg.mode
-    if mode not in cfg.mode:
+    if mode not in cfg.mlp:
         raise ValueError(f'Unknown mode: {mode}')
 
     model_cfg = cfg.mlp[mode]
@@ -66,12 +67,18 @@ def visualize(cfg: DictConfig) -> None:
         sol = sol.cpu().numpy()
         T = T.cpu()
 
-        fix, axs = plt.subplots(2, cfg.visual.n_steps // 2, figsize=(20, 20))
+        fig, axs = plt.subplots(2, cfg.visual.n_steps // 2, figsize=(20, 9))
         axs = axs.flatten()
+
+
 
         for i in range(cfg.visual.n_steps):
             print(f'Processing time step {i}...')
-            H, _, _, im = axs[i].hist2d(sol[i, :, 0], sol[i, :, 1], 300, range=((-5, 5), (-5, 10)), rasterized=True)
+            if mode == 'sl2':
+                y_range = (0, 10)
+            elif mode == 'so3':
+                y_range = (-5, 5)
+            H, _, _, im = axs[i].hist2d(sol[i, :, 0], sol[i, :, 1], 300, range=((-5, 5), y_range), rasterized=True)
 
             cmin = 0.0
             cmax = np.quantile(H, 0.99)
@@ -91,6 +98,13 @@ def visualize(cfg: DictConfig) -> None:
                 f'{mode}_cp_{cp_id}.pdf'
             )
         )
+
+
+
+
+
+
+
 
 
 if __name__ == '__main__':

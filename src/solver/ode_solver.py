@@ -5,6 +5,7 @@ from torchdiffeq import odeint
 
 from solver.solver import Solver
 from utils.model_wrapper import ModelWrapper
+from utils.utils import gradient
 
 
 class ODESolver(Solver):
@@ -94,5 +95,87 @@ class ODESolver(Solver):
         return sol if return_intermediates else sol[-1]
 
 
+    def compute_likelihood(
+        self,
+        x_1: torch.Tensor,
+        log_p0: Callable[[torch.Tensor], torch.Tensor],
+        step_size: Optional[float],
+        method: str = 'euler',
+        atol: float = 1e-5,
+        rtol: float = 1e-5,
+        time_grid: torch.Tensor = torch.Tensor([1.0, 0.0]),
+        return_intermediates: bool = False,
+        enable_grad: bool = False,
+        **model_extras
+    ) -> Union[tuple[torch.Tensor, torch.Tensor], tuple[Sequence[torch.Tensor], torch.Tensor]]:
+        r'''Solve for log likelihood given a target sample at :math:`t=0`.
 
+        Works similarly to sample, but solves the ODE in reverse to compute the log-likelihood. The velocity model must be differentiable with respect to x.
+        The function assumes log_p0 is the log probability of the source distribution at :math:`t=0`.
+
+        Args:
+            x_1 (Tensor): target sample (e.g., samples :math:`X_1 \sim p_1`).
+            log_p0 (Callable[[Tensor], Tensor]): Log probability function of the source distribution.
+            step_size (Optional[float]): The step size. Must be None for adaptive step solvers.
+            method (str): A method supported by torchdiffeq. Defaults to "euler". Other commonly used solvers are "dopri5", "midpoint" and "heun3". For a complete list, see torchdiffeq.
+            atol (float): Absolute tolerance, used for adaptive step solvers.
+            rtol (float): Relative tolerance, used for adaptive step solvers.
+            time_grid (Tensor): If step_size is None then time discretization is set by the time grid. Must start at 1.0 and end at 0.0, otherwise the likelihood computation is not valid. Defaults to torch.tensor([1.0, 0.0]).
+            return_intermediates (bool, optional): If True then return intermediate time steps according to time_grid. Otherwise only return the final sample. Defaults to False.
+            enable_grad (bool, optional): Whether to compute gradients during sampling. Defaults to False.
+            **model_extras: Additional input for the model.
+
+        Returns:
+            Union[Tuple[Tensor, Tensor], Tuple[Sequence[Tensor], Tensor]]: Samples at time_grid and log likelihood values of given x_1.
+        '''
+
+        assert (
+            time_grid[0] == 1.0 and time_grid[-1] == 0.0
+        ), f'Time grid must start at 1.0 and end at 0.0. Got {time_grid}.'
+
+        def ode_func(x, t):
+            return self.velocity_model(x=x, t=t, **model_extras)
+
+        def dynamics_func(t, states):
+            xt = states[0]
+            with torch.set_grad_enabled(True):
+                xt.requires_grad_(True)
+                ut = ode_func(xt, t)
+
+                ut_flat = ut.reshape(ut.shape[0], -1)
+
+                div = 0
+                for i in range(ut_flat.shape[1]):
+                    g = gradient(ut_flat[:, i], xt, create_graph=True)
+                    g_flat = g.reshape(g.shape[0], -1)
+                    if not enable_grad:
+                        g_flat = g_flat.detach()
+                    div += g_flat[:, i]
+
+            if not enable_grad:
+                ut = ut.detach()
+                div = div.detach()
+            return ut, div
+
+        y_init = (x_1, torch.zeros(x_1.shape[0], device=x_1.device))
+        ode_opts = {'step_size' : step_size} if step_size is not None else {}
+
+        with torch.set_grad_enabled(enable_grad):
+            sol, log_det = odeint(
+                dynamics_func,
+                y_init,
+                time_grid,
+                method=method,
+                options=ode_opts,
+                atol=atol,
+                rtol=rtol
+            )
+
+        x_source = sol[-1]
+        source_log_p = log_p0(x_source)
+
+        if return_intermediates:
+            return sol, source_log_p + log_det[-1]
+        else:
+            return sol[-1], source_log_p + log_det[-1]
 
