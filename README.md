@@ -8,6 +8,7 @@ The code in this repository is CC BY-NC licensed. See [LICENSE](LICENSE.md) for 
 ## Citation
 If you found this repository useful, please cite the following.
 
+```
 @misc{ruscelli2026flowmatchinghomogeneousspaces,
       title={Flow matching on homogeneous spaces}, 
       author={Francesco Ruscelli},
@@ -17,3 +18,4 @@ If you found this repository useful, please cite the following.
       primaryClass={cs.LG},
       url={https://arxiv.org/abs/2603.24829}, 
 }
+```
